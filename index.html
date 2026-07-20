@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>X Token — Mint · Burn · KAVI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<style>
+  :root{
+    --ink:#0E0F13;
+    --panel:#171920;
+    --panel2:#1E212B;
+    --line:#2A2E3A;
+    --gold:#F3BA2F;
+    --ember:#FF6B35;
+    --text:#EDEDEA;
+    --muted:#8B8E98;
+    --green:#4ADE80;
+    --red:#F87171;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{background:var(--ink)}
+  body{
+    font-family:'Space Grotesk',sans-serif;
+    background:var(--ink);
+    color:var(--text);
+    min-height:100vh;
+    padding:0 12px 40px;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace}
+
+  /* ---------- HEADER ---------- */
+  header{
+    max-width:1060px;margin:0 auto;
+    display:flex;align-items:center;justify-content:space-between;
+    gap:10px;flex-wrap:wrap;
+    padding:14px 0 12px;
+  }
+  .logo{display:flex;align-items:center;gap:10px}
+  .logo-x{
+    width:34px;height:34px;border-radius:9px;
+    background:linear-gradient(135deg,var(--gold),var(--ember));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:18px;color:#0E0F13;
+  }
+  .logo h1{font-size:16px;font-weight:700;letter-spacing:-.02em}
+  .logo .sub{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+  #connectBtn{
+    font-family:'Space Grotesk';font-weight:600;font-size:13px;
+    background:var(--gold);color:#0E0F13;border:none;
+    padding:9px 16px;border-radius:9px;cursor:pointer;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  #connectBtn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(243,186,47,.25)}
+  #connectBtn:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+  #connectBtn.connected{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  .net-pill{
+    font-size:11px;padding:5px 10px;border-radius:999px;
+    border:1px solid var(--line);color:var(--muted);margin-right:10px;
+  }
+  .net-pill.ok{color:var(--gold);border-color:rgba(243,186,47,.4)}
+
+  /* ---------- GRID ---------- */
+  .grid{max-width:1060px;margin:0 auto;display:grid;grid-template-columns:1fr 1.2fr;gap:14px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+
+  .card{
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);padding:18px;
+  }
+  .card h2{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+
+  /* ---------- MINT CARD ---------- */
+  .mint-hero{text-align:center;padding:4px 0 2px}
+  .mint-amount{
+    font-size:40px;font-weight:700;letter-spacing:-.03em;line-height:1;
+    background:linear-gradient(90deg,var(--gold),var(--ember));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .mint-label{font-size:12px;color:var(--muted);margin-top:6px}
+  .btn-mint{
+    width:100%;font-family:'Space Grotesk';font-weight:700;font-size:15px;
+    background:linear-gradient(90deg,var(--gold),var(--ember));
+    color:#0E0F13;border:none;padding:13px;border-radius:10px;cursor:pointer;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn-mint:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 26px rgba(255,107,53,.28)}
+  .btn-mint:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+  .btn-mint:disabled{opacity:.45;cursor:not-allowed}
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+
+  /* ---------- STATS ---------- */
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+  .stat{background:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+  .stat .k{font-size:10px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+  .stat .v{font-size:15px;font-weight:600;margin-top:4px;word-break:break-all}
+
+  /* ---------- TABS ---------- */
+  .tabs{display:flex;gap:6px;margin-bottom:12px}
+  .tab{
+    font-family:'Space Grotesk';font-size:12px;font-weight:600;
+    padding:8px 14px;border-radius:8px;cursor:pointer;
+    background:transparent;border:1px solid var(--line);color:var(--muted);
+  }
+  .tab.active{background:var(--panel2);color:var(--text);border-color:var(--gold)}
+  .tab:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .field{margin-bottom:10px}
+  .field label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px}
+  .field input{
+    width:100%;background:var(--ink);border:1px solid var(--line);border-radius:8px;
+    padding:10px 12px;color:var(--text);font-size:16px;
+  }
+  .field input:focus{outline:none;border-color:var(--gold)}
+  .field input.invalid{border-color:var(--red)}
+  .field .hint{font-size:11px;color:var(--red);margin-top:4px;display:none}
+  .field .hint.show{display:block}
+  .fee-note{font-size:11px;color:var(--muted);line-height:1.45;margin-bottom:12px}
+  .btn-act{
+    width:100%;font-family:'Space Grotesk';font-weight:700;font-size:14px;
+    padding:11px;border-radius:9px;cursor:pointer;border:none;
+  }
+  .btn-act:disabled{opacity:.45;cursor:not-allowed}
+  .btn-act:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+  .btn-burn{background:var(--ember);color:#0E0F13}
+  .btn-burn:hover:not(:disabled){box-shadow:0 6px 20px rgba(255,107,53,.3)}
+  .btn-transfer{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  .btn-transfer:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}
+
+  /* ---------- STATUS LOG ---------- */
+  .status{
+    max-width:1060px;margin:14px auto 0;
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px 16px;font-size:12px;min-height:44px;
+  }
+  .status .line{padding:3px 0;color:var(--muted);word-break:break-word}
+  .status .line.ok{color:var(--green)}
+  .status .line.err{color:var(--red)}
+  .status .line.pending{color:var(--gold)}
+  .status a{color:var(--gold)}
+
+  /* ---------- ADDRESS CHIP ---------- */
+  .addr-chip{
+    display:flex;align-items:center;gap:8px;
+    background:var(--ink);border:1px solid var(--line);border-radius:9px;
+    padding:8px 10px;margin-bottom:14px;
+  }
+  .addr-chip .addr{flex:1;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chip-btn{
+    font-family:'Space Grotesk';font-size:11px;font-weight:600;
+    background:var(--panel2);color:var(--text);border:1px solid var(--line);
+    padding:6px 11px;border-radius:7px;cursor:pointer;white-space:nowrap;
+  }
+  .chip-btn:hover{border-color:var(--gold);color:var(--gold)}
+  .chip-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .chip-btn.copied{color:var(--green);border-color:var(--green)}
+
+  /* ---------- SCAN ROW ---------- */
+  .scan-row{display:flex;gap:8px}
+  .scan-row input{flex:1}
+  .scan-row .chip-btn{padding:0 14px}
+
+  /* ---------- MODAL ---------- */
+  .modal{
+    position:fixed;inset:0;background:rgba(10,11,15,.85);
+    display:flex;align-items:center;justify-content:center;z-index:50;padding:16px;
+  }
+  .modal[hidden]{display:none}
+  .modal-box{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px;max-width:340px;width:100%;text-align:center;
+  }
+  .modal-title{font-size:14px;font-weight:700;margin-bottom:14px}
+  #qrHolder{display:flex;justify-content:center;margin-bottom:12px}
+  #qrHolder img,#qrHolder canvas{border-radius:10px;background:#fff;padding:10px}
+  #scanVideo{width:100%;border-radius:10px;margin-bottom:12px;background:#000}
+  .modal-hint{font-size:11.5px;color:var(--muted);margin-bottom:14px;line-height:1.5;word-break:break-all}
+  .modal-hint.err{color:var(--red)}
+  .modal-close-btn{
+    font-family:'Space Grotesk';font-weight:600;font-size:13px;
+    background:var(--panel2);color:var(--text);border:1px solid var(--line);
+    padding:10px 22px;border-radius:9px;cursor:pointer;
+  }
+  .modal-close-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+  /* ---------- SMALL SCREENS ---------- */
+  @media(max-width:480px){
+    body{padding:0 10px 30px}
+    header{padding:12px 0 10px}
+    .net-pill{display:none}
+    #connectBtn{padding:9px 14px}
+    .card{padding:14px}
+    .mint-amount{font-size:34px}
+    .stat .v{font-size:14px}
+    .btn-mint,.btn-act{padding:12px;min-height:44px}
+    .tab{flex:1;text-align:center}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-x">X</div>
+    <div>
+      <h1>X Token</h1>
+      <div class="sub">Discount Token</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center">
+    <span class="net-pill" id="netPill">Not connected</span>
+    <button id="connectBtn">Connect Wallet</button>
+  </div>
+</header>
+
+<div class="grid">
+
+  <!-- MINT -->
+  <div class="card">
+    <h2>Mint</h2>
+    <div class="mint-hero">
+      <div class="mint-amount" id="mintAmt">10,000</div>
+      <div class="mint-label">10% discount on our shop</div>
+    </div>
+    <button class="btn-mint" id="mintBtn" disabled style="margin-top:14px">Mint 10,000 X</button>
+  </div>
+
+  <!-- WALLET + ACTIONS -->
+  <div class="card">
+    <h2>Your wallet</h2>
+    <div class="addr-chip">
+      <span class="addr mono" id="myAddr">Not connected</span>
+      <button class="chip-btn" id="copyBtn" disabled>Copy</button>
+      <button class="chip-btn" id="myQrBtn" disabled>My QR</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="k">X Balance</div><div class="v mono" id="xBal">—</div></div>
+      <div class="stat"><div class="k">BNB Balance</div><div class="v mono" id="bnbBal">—</div></div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab active" id="tabBurn" role="tab" aria-selected="true">Burn X</button>
+      <button class="tab" id="tabTransfer" role="tab" aria-selected="false">Transfer X</button>
+    </div>
+
+    <div id="panelBurn">
+      <div class="field">
+        <label for="burnAmt">Amount to burn</label>
+        <input id="burnAmt" class="mono" type="number" min="0" step="any" placeholder="e.g. 500">
+        <div class="hint" id="burnHint"></div>
+      </div>
+      <button class="btn-act btn-burn" id="burnBtn" disabled>Burn tokens</button>
+    </div>
+
+    <div id="panelTransfer" style="display:none">
+      <div class="field">
+        <label for="toAddr">Recipient address</label>
+        <div class="scan-row">
+          <input id="toAddr" class="mono" placeholder="0x…" spellcheck="false">
+          <button class="chip-btn" id="scanBtn" type="button">Scan QR</button>
+        </div>
+        <div class="hint" id="toHint"></div>
+      </div>
+      <div class="field">
+        <label for="sendAmt">Amount</label>
+        <input id="sendAmt" class="mono" type="number" min="0" step="any" placeholder="e.g. 1000">
+        <div class="hint" id="sendHint"></div>
+      </div>
+      <p class="fee-note" id="taxNote">A transfer tax applies — the recipient receives the amount after tax.</p>
+      <button class="btn-act btn-transfer" id="sendBtn" disabled>Send X</button>
+    </div>
+  </div>
+</div>
+
+<div class="status" id="statusBox">
+  <div class="line" id="initialMsg">Connect your wallet to get started.</div>
+</div>
+
+<!-- QR MODAL (show my QR / scan a QR) -->
+<div class="modal" id="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-title" id="modalTitle">QR Code</div>
+    <div id="qrHolder"></div>
+    <video id="scanVideo" playsinline hidden></video>
+    <canvas id="scanCanvas" hidden></canvas>
+    <div class="modal-hint" id="modalHint"></div>
+    <button class="modal-close-btn" id="modalClose">Close</button>
+  </div>
+</div>
+
+<script>
+const BSC_MAINNET = { chainId:'0x38', name:'BNB Smart Chain', scan:'https://bscscan.com' };
+const BSC_TESTNET = { chainId:'0x61', name:'BSC Testnet',     scan:'https://testnet.bscscan.com' };
+
+// ---- Deployed addresses ----
+const DEFAULT_CONTRACT = '0x27701490bcc2cb8b4b1713b9ee29008ffdcce5c9'; // X Token
+
+const ABI = [
+  "function mint() payable",
+  "function burn(uint256 amount)",
+  "function transfer(address to, uint256 amount) returns (bool)",
+  "function balanceOf(address) view returns (uint256)",
+  "function totalSupply() view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)",
+  "function tokensPerMint() view returns (uint256)",
+  "function mintGasUnits() view returns (uint256)",
+  "function gasFeeMultiplier() view returns (uint256)",
+  "function taxPercent() view returns (uint256)"
+];
+
+let provider, signer, account, contract;
+let decimals = 18, currentScan = BSC_MAINNET.scan;
+
+const $ = id => document.getElementById(id);
+
+// ============================================================
+//  STATUS LOG
+// ============================================================
+function log(msg, cls){
+  const box = $('statusBox');
+  const div = document.createElement('div');
+  div.className = 'line' + (cls ? ' ' + cls : '');
+  div.innerHTML = msg;
+  box.prepend(div);
+  while (box.children.length > 6) box.removeChild(box.lastChild);
+}
+const fmt = (bn, dec = decimals) => {
+  const n = Number(ethers.utils.formatUnits(bn, dec));
+  return n >= 1000 ? n.toLocaleString('en-US',{maximumFractionDigits:2}) : n.toLocaleString('en-US',{maximumFractionDigits:4});
+};
+const short = a => a.slice(0,6) + '…' + a.slice(-4);
+
+// ============================================================
+//  ERROR HANDLING
+//  Turns raw wallet/RPC errors into clear, actionable messages
+// ============================================================
+function parseError(e){
+  if (!e) return 'Unknown error.';
+  const code = e.code;
+  const msg = (e.reason || e.data?.message || e.error?.message || e.message || String(e)).toLowerCase();
+
+  // User cancelled in wallet
+  if (code === 4001 || code === 'ACTION_REJECTED' || msg.includes('user rejected') || msg.includes('user denied'))
+    return 'Transaction cancelled — you rejected it in your wallet.';
+
+  // Not enough BNB for value + gas
+  if (code === 'INSUFFICIENT_FUNDS' || msg.includes('insufficient funds'))
+    return 'Insufficient BNB — you need enough BNB to cover the mint cost plus gas.';
+
+  // Contract revert reasons (from our contract)
+  if (msg.includes('2x gas fee'))
+    return 'Not enough BNB sent for the mint fee. Try again — the app will recalculate the required amount.';
+  if (msg.includes('kavi swap failed'))
+    return 'KAVI swap failed on PancakeSwap — check that the KAVI/USDT pair has liquidity on this network.';
+  if (msg.includes('balance kam') || msg.includes('transfer amount exceeds balance'))
+    return 'Insufficient token balance for this action.';
+  if (msg.includes('allowance'))
+    return 'Insufficient allowance — approve the tokens first.';
+  if (msg.includes('refund failed'))
+    return 'BNB refund to your wallet failed. Contact the contract owner.';
+
+  // PancakeSwap errors
+  if (msg.includes('insufficient_output_amount') || msg.includes('insufficient_liquidity'))
+    return 'PancakeSwap error: not enough liquidity in the pool for this swap.';
+  if (msg.includes('expired'))
+    return 'Transaction deadline expired — the network was slow. Please try again.';
+
+  // Network issues
+  if (code === 'NETWORK_ERROR' || msg.includes('network changed'))
+    return 'Network changed or disconnected — please reconnect your wallet.';
+  if (code === 'TIMEOUT' || msg.includes('timeout'))
+    return 'Request timed out — the RPC node is slow. Please try again.';
+  if (msg.includes('nonce'))
+    return 'Nonce error — reset your MetaMask activity (Settings → Advanced → Clear activity) and retry.';
+  if (code === 'CALL_EXCEPTION' && e.reason)
+    return 'Contract reverted: ' + e.reason;
+  if (msg.includes('execution reverted')){
+    const m = (e.reason || e.data?.message || e.message || '').match(/execution reverted:?\s*([^"\\]+)/i);
+    return 'Contract reverted' + (m && m[1] ? ': ' + m[1].trim() : ' — the transaction was blocked by the contract.');
+  }
+
+  // Fallback: short version of raw message
+  const raw = e.reason || e.message || String(e);
+  return raw.length > 140 ? raw.slice(0,140) + '…' : raw;
+}
+
+function setHint(id, text){
+  const el = $(id);
+  if (!el) return;
+  el.textContent = text || '';
+  el.classList.toggle('show', !!text);
+}
+function markInvalid(inputId, hintId, text){
+  $(inputId).classList.add('invalid');
+  setHint(hintId, text);
+}
+function clearInvalid(inputId, hintId){
+  $(inputId).classList.remove('invalid');
+  setHint(hintId, '');
+}
+
+// Guard: are we ready to send a transaction?
+function ready(){
+  if (!window.ethereum){ log('MetaMask not detected — please install the MetaMask extension.', 'err'); return false; }
+  if (!signer || !account){ log('Wallet not connected — click Connect Wallet first.', 'err'); return false; }
+  if (!contract){ log('Contract not loaded — check the contract address and click Load.', 'err'); return false; }
+  return true;
+}
+
+// ============================================================
+//  CONNECT
+// ============================================================
+$('connectBtn').onclick = async () => {
+  if (!window.ethereum) {
+    log('MetaMask not detected — install it from <a href="https://metamask.io" target="_blank" rel="noopener">metamask.io</a> and reload this page.', 'err');
+    return;
+  }
+  try {
+    provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+    await provider.send('eth_requestAccounts', []);
+    signer = provider.getSigner();
+    account = await signer.getAddress();
+
+    const net = await provider.getNetwork();
+    const hex = '0x' + net.chainId.toString(16);
+    if (hex !== BSC_MAINNET.chainId && hex !== BSC_TESTNET.chainId) {
+      log('Wrong network — switching to BNB Smart Chain…', 'pending');
+      try {
+        await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{ chainId: BSC_MAINNET.chainId }] });
+      } catch (switchErr) {
+        if (switchErr.code === 4902) {
+          log('BNB Smart Chain is not added to your MetaMask — add it manually and reconnect.', 'err');
+        } else {
+          log('Network switch failed: ' + parseError(switchErr), 'err');
+        }
+        return;
+      }
+      provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+      signer = provider.getSigner();
+    }
+    const net2 = await provider.getNetwork();
+    const isTest = ('0x' + net2.chainId.toString(16)) === BSC_TESTNET.chainId;
+    currentScan = isTest ? BSC_TESTNET.scan : BSC_MAINNET.scan;
+
+    $('netPill').textContent = isTest ? 'BSC Testnet' : 'BSC Mainnet';
+    $('netPill').classList.add('ok');
+    $('connectBtn').textContent = short(account);
+    $('connectBtn').classList.add('connected');
+
+    // Remove the initial "connect your wallet" message
+    const initMsg = $('initialMsg');
+    if (initMsg) initMsg.remove();
+
+    // Enable address chip (copy + QR)
+    $('myAddr').textContent = account;
+    $('copyBtn').disabled = false;
+    $('myQrBtn').disabled = false;
+
+    refreshBnb();
+
+    await loadContract(DEFAULT_CONTRACT);
+
+    window.ethereum.on('accountsChanged', () => location.reload());
+    window.ethereum.on('chainChanged',   () => location.reload());
+  } catch (e) {
+    log('Connection failed: ' + parseError(e), 'err');
+  }
+};
+
+// ============================================================
+//  LOAD CONTRACT
+// ============================================================
+async function loadContract(addr){
+  if (!signer) { log('Connect your wallet first.', 'err'); return; }
+  if (!ethers.utils.isAddress(addr)) { log('Invalid contract address — it must be a 42-character address starting with 0x.', 'err'); return; }
+  try {
+    // Verify a contract actually exists at this address
+    const code = await provider.getCode(addr);
+    if (code === '0x') {
+      contract = null;
+      log('No contract found at this address on the current network — check the address and your network.', 'err');
+      return;
+    }
+    contract = new ethers.Contract(addr, ABI, signer);
+    decimals = await contract.decimals();
+    const sym = await contract.symbol();
+    log(sym + ' contract loaded: <a href="' + currentScan + '/address/' + addr + '" target="_blank" rel="noopener" class="mono">' + short(addr) + '</a>', 'ok');
+
+    refreshAll();
+  } catch (e) {
+    contract = null;
+    log('Failed to load contract: ' + parseError(e), 'err');
+  }
+}
+
+// ============================================================
+//  REFRESH DATA
+// ============================================================
+async function refreshBnb(){
+  if (!provider || !account) return;
+  try {
+    const b = await provider.getBalance(account);
+    $('bnbBal').textContent = fmt(b, 18) + ' BNB';
+  } catch { /* silent */ }
+}
+async function refreshAll(){
+  if (!contract || !account) return;
+  try {
+    const [bal, tpm, tax] = await Promise.all([
+      contract.balanceOf(account),
+      contract.tokensPerMint(),
+      contract.taxPercent()
+    ]);
+    $('xBal').textContent = fmt(bal);
+    $('mintAmt').textContent = fmt(tpm);
+    $('mintBtn').textContent = 'Mint ' + fmt(tpm) + ' X';
+    $('taxNote').textContent = 'A ' + tax.toString() + '% transfer tax applies — the recipient receives the amount after tax.';
+    $('mintBtn').disabled = false;
+    $('burnBtn').disabled = false;
+    $('sendBtn').disabled = false;
+    refreshBnb();
+  } catch (e) {
+    log('Could not refresh data: ' + parseError(e), 'err');
+  }
+}
+
+// ============================================================
+//  MINT
+// ============================================================
+$('mintBtn').onclick = async () => {
+  if (!ready()) return;
+  try {
+    $('mintBtn').disabled = true;
+
+    const gasPrice = await provider.getGasPrice();
+    const [units, mult] = await Promise.all([
+      contract.mintGasUnits(),
+      contract.gasFeeMultiplier()
+    ]);
+    const fee = gasPrice.mul(units).mul(mult);
+    const sendValue = fee.mul(150).div(100); // 1.5x buffer — excess is refunded by the contract
+
+    // Pre-check: enough BNB for value + gas?
+    const bnb = await provider.getBalance(account);
+    const gasCost = gasPrice.mul(700000);
+    if (bnb.lt(sendValue.add(gasCost))) {
+      const need = Number(ethers.utils.formatEther(sendValue.add(gasCost))).toFixed(5);
+      log('Insufficient BNB — you need about ' + need + ' BNB (mint cost + gas). Top up and try again.', 'err');
+      return;
+    }
+
+    log('Sending mint transaction…', 'pending');
+    const tx = await contract.mint({
+      value: sendValue,
+      gasLimit: 700000,
+      gasPrice: gasPrice
+    });
+    log('Pending: <a href="' + currentScan + '/tx/' + tx.hash + '" target="_blank" rel="noopener">' + short(tx.hash) + '</a>', 'pending');
+
+    const receipt = await tx.wait();
+    if (receipt.status === 0) {
+      log('Mint transaction failed on-chain — view details on <a href="' + currentScan + '/tx/' + tx.hash + '" target="_blank" rel="noopener">BscScan</a>.', 'err');
+      return;
+    }
+    log('Mint successful — tokens are in your wallet. Excess BNB was refunded.', 'ok');
+    refreshAll();
+  } catch (e) {
+    log('Mint failed: ' + parseError(e), 'err');
+  } finally {
+    $('mintBtn').disabled = false;
+  }
+};
+
+// ============================================================
+//  BURN
+// ============================================================
+$('burnBtn').onclick = async () => {
+  if (!ready()) return;
+  clearInvalid('burnAmt','burnHint');
+
+  const amt = $('burnAmt').value.trim();
+  if (!amt || isNaN(amt) || Number(amt) <= 0) {
+    markInvalid('burnAmt','burnHint','Enter an amount greater than 0.');
+    return;
+  }
+
+  let wei;
+  try { wei = ethers.utils.parseUnits(amt, decimals); }
+  catch { markInvalid('burnAmt','burnHint','Invalid number format.'); return; }
+
+  try {
+    // Pre-check balance
+    const bal = await contract.balanceOf(account);
+    if (bal.lt(wei)) {
+      markInvalid('burnAmt','burnHint','You only have ' + fmt(bal) + ' X.');
+      return;
+    }
+
+    $('burnBtn').disabled = true;
+    log('Sending burn transaction…', 'pending');
+    const tx = await contract.burn(wei);
+    log('Pending: <a href="' + currentScan + '/tx/' + tx.hash + '" target="_blank" rel="noopener">' + short(tx.hash) + '</a>', 'pending');
+
+    const receipt = await tx.wait();
+    if (receipt.status === 0) {
+      log('Burn transaction failed on-chain — view details on <a href="' + currentScan + '/tx/' + tx.hash + '" target="_blank" rel="noopener">BscScan</a>.', 'err');
+      return;
+    }
+    log('Burned ' + amt + ' X — total supply reduced.', 'ok');
+    $('burnAmt').value = '';
+    refreshAll();
+  } catch (e) {
+    log('Burn failed: ' + parseError(e), 'err');
+  } finally {
+    $('burnBtn').disabled = false;
+  }
+};
+
+// ============================================================
+//  TRANSFER
+// ============================================================
+$('sendBtn').onclick = async () => {
+  if (!ready()) return;
+  clearInvalid('toAddr','toHint');
+  clearInvalid('sendAmt','sendHint');
+
+  const to = $('toAddr').value.trim();
+  const amt = $('sendAmt').value.trim();
+  let hasError = false;
+
+  if (!ethers.utils.isAddress(to)) {
+    markInvalid('toAddr','toHint','Invalid address — must be 42 characters starting with 0x.');
+    hasError = true;
+  } else if (to.toLowerCase() === account.toLowerCase()) {
+    markInvalid('toAddr','toHint','You are sending to your own address.');
+  }
+  if (!amt || isNaN(amt) || Number(amt) <= 0) {
+    markInvalid('sendAmt','sendHint','Enter an amount greater than 0.');
+    hasError = true;
+  }
+  if (hasError) return;
+
+  let wei;
+  try { wei = ethers.utils.parseUnits(amt, decimals); }
+  catch { markInvalid('sendAmt','sendHint','Invalid number format.'); return; }
+
+  try {
+    // Pre-check balance
+    const bal = await contract.balanceOf(account);
+    if (bal.lt(wei)) {
+      markInvalid('sendAmt','sendHint','You only have ' + fmt(bal) + ' X.');
+      return;
+    }
+
+    $('sendBtn').disabled = true;
+    log('Sending transfer…', 'pending');
+    const tx = await contract.transfer(to, wei);
+    log('Pending: <a href="' + currentScan + '/tx/' + tx.hash + '" target="_blank" rel="noopener">' + short(tx.hash) + '</a>', 'pending');
+
+    const receipt = await tx.wait();
+    if (receipt.status === 0) {
+      log('Transfer failed on-chain — view details on <a href="' + currentScan + '/tx/' + tx.hash + '" target="_blank" rel="noopener">BscScan</a>.', 'err');
+      return;
+    }
+    log('Sent ' + amt + ' X to <span class="mono">' + short(to) + '</span> (tax deducted).', 'ok');
+    $('sendAmt').value = '';
+    refreshAll();
+  } catch (e) {
+    log('Transfer failed: ' + parseError(e), 'err');
+  } finally {
+    $('sendBtn').disabled = false;
+  }
+};
+
+// ============================================================
+//  TABS
+// ============================================================
+$('tabBurn').onclick = () => {
+  $('tabBurn').classList.add('active');        $('tabBurn').setAttribute('aria-selected','true');
+  $('tabTransfer').classList.remove('active'); $('tabTransfer').setAttribute('aria-selected','false');
+  $('panelBurn').style.display = '';
+  $('panelTransfer').style.display = 'none';
+};
+$('tabTransfer').onclick = () => {
+  $('tabTransfer').classList.add('active');  $('tabTransfer').setAttribute('aria-selected','true');
+  $('tabBurn').classList.remove('active');   $('tabBurn').setAttribute('aria-selected','false');
+  $('panelTransfer').style.display = '';
+  $('panelBurn').style.display = 'none';
+};
+
+// Clear inline errors as the user types
+$('burnAmt').addEventListener('input', () => clearInvalid('burnAmt','burnHint'));
+$('toAddr').addEventListener('input',  () => clearInvalid('toAddr','toHint'));
+$('sendAmt').addEventListener('input', () => clearInvalid('sendAmt','sendHint'));
+
+// ============================================================
+//  COPY WALLET ADDRESS
+// ============================================================
+$('copyBtn').onclick = async () => {
+  if (!account) return;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(account);
+    } else {
+      // Fallback for non-HTTPS pages
+      const ta = document.createElement('textarea');
+      ta.value = account;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    $('copyBtn').textContent = 'Copied!';
+    $('copyBtn').classList.add('copied');
+    setTimeout(() => {
+      $('copyBtn').textContent = 'Copy';
+      $('copyBtn').classList.remove('copied');
+    }, 1500);
+  } catch (e) {
+    log('Copy failed — select and copy the address manually.', 'err');
+  }
+};
+
+// ============================================================
+//  QR MODAL (generate + scan)
+// ============================================================
+let scanStream = null, scanning = false;
+
+function openModal(title){
+  $('modalTitle').textContent = title;
+  $('qrHolder').innerHTML = '';
+  $('modalHint').textContent = '';
+  $('modalHint').classList.remove('err');
+  $('scanVideo').hidden = true;
+  $('modal').hidden = false;
+}
+function closeModal(){
+  $('modal').hidden = true;
+  stopScanner();
+}
+function stopScanner(){
+  scanning = false;
+  if (scanStream){
+    scanStream.getTracks().forEach(t => t.stop());
+    scanStream = null;
+  }
+  $('scanVideo').hidden = true;
+}
+$('modalClose').onclick = closeModal;
+$('modal').onclick = (e) => { if (e.target === $('modal')) closeModal(); };
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('modal').hidden) closeModal(); });
+
+// ---- Show my wallet QR (others can scan it to send tokens to you) ----
+$('myQrBtn').onclick = () => {
+  if (!account) return;
+  openModal('My Wallet QR');
+  try {
+    new QRCode($('qrHolder'), {
+      text: account,
+      width: 200,
+      height: 200,
+      colorDark: '#0E0F13',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    $('modalHint').textContent = account;
+  } catch (e) {
+    $('modalHint').textContent = 'Could not generate QR code.';
+    $('modalHint').classList.add('err');
+  }
+};
+
+// ---- Scan a QR to fill the recipient address ----
+$('scanBtn').onclick = async () => {
+  openModal('Scan Recipient QR');
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    $('modalHint').textContent = 'Camera not supported in this browser.';
+    $('modalHint').classList.add('err');
+    return;
+  }
+  if (!window.isSecureContext) {
+    $('modalHint').textContent = 'Camera needs HTTPS — open this page over https:// (or localhost) to scan.';
+    $('modalHint').classList.add('err');
+    return;
+  }
+
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' } // back camera on phones
+    });
+  } catch (e) {
+    if (e.name === 'NotAllowedError') {
+      $('modalHint').textContent = 'Camera permission denied — allow camera access and try again.';
+    } else if (e.name === 'NotFoundError') {
+      $('modalHint').textContent = 'No camera found on this device.';
+    } else {
+      $('modalHint').textContent = 'Could not open camera: ' + (e.message || e.name);
+    }
+    $('modalHint').classList.add('err');
+    return;
+  }
+
+  const video = $('scanVideo');
+  video.srcObject = scanStream;
+  video.hidden = false;
+  await video.play();
+  $('modalHint').textContent = 'Point the camera at a wallet QR code…';
+
+  const canvas = $('scanCanvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  scanning = true;
+
+  function tick(){
+    if (!scanning) return;
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+      if (code && code.data) {
+        // Extract a 0x address from the QR (handles plain address and ethereum: URIs)
+        const m = code.data.match(/0x[a-fA-F0-9]{40}/);
+        if (m && ethers.utils.isAddress(m[0])) {
+          $('toAddr').value = m[0];
+          clearInvalid('toAddr','toHint');
+          closeModal();
+          log('Recipient address scanned: <span class="mono">' + short(m[0]) + '</span>', 'ok');
+          return;
+        } else {
+          $('modalHint').textContent = 'QR found, but it does not contain a valid wallet address. Try another QR.';
+          $('modalHint').classList.add('err');
+        }
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+};
+</script>
+</body>
+</html>
