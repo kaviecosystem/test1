@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KAVI Distribution Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#151b23; --panel2:#1b232d; --line:#26303c;
+    --ink:#e6edf3; --muted:#8b98a5; --faint:#5c6773;
+    --accent:#e0a83e; --accent-dim:#8a6a24;
+    --ok:#3fb950; --bad:#f85149; --lock:#d29922; --info:#58a6ff;
+    --radius:10px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif; font-size:15px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--info);text-decoration:none}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif;margin:0;letter-spacing:-0.01em}
+  .mono{font-family:'JetBrains Mono',monospace}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px 80px}
+
+  header.topbar{
+    position:sticky;top:0;z-index:20;background:rgba(13,17,23,.85);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  }
+  .topbar-in{max-width:1080px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:18px}
+  .brand .dot{width:12px;height:12px;border-radius:3px;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+  .grow{flex:1}
+  .netpill{font-size:12px;padding:5px 10px;border:1px solid var(--line);border-radius:20px;color:var(--muted)}
+  .netpill.warn{color:var(--bad);border-color:var(--bad)}
+
+  button{
+    font-family:'Inter';font-weight:600;font-size:14px;cursor:pointer;
+    background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    padding:9px 14px;border-radius:8px;transition:border-color .12s,background .12s;
+  }
+  button:hover{border-color:var(--faint)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.primary{background:var(--accent);color:#1a1200;border-color:var(--accent)}
+  button.primary:hover{background:#ecb84f}
+  button.ghost{background:transparent}
+  button.danger{color:var(--bad);border-color:#3a2020}
+  button.danger:hover{border-color:var(--bad)}
+  button.sm{padding:6px 10px;font-size:13px}
+
+  input,select{
+    font-family:'JetBrains Mono',monospace;font-size:13px;
+    background:var(--bg);color:var(--ink);border:1px solid var(--line);
+    padding:9px 11px;border-radius:8px;width:100%;
+  }
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  select{font-family:'Inter'}
+  label.fld{display:block;font-size:12px;color:var(--muted);margin:0 0 5px}
+
+  .hero{
+    margin:26px 0 22px;padding:26px;border:1px solid var(--line);border-radius:14px;
+    background:linear-gradient(180deg,#171f28,#12181f);
+    display:flex;gap:32px;align-items:center;flex-wrap:wrap;
+  }
+  .price-num{font-family:'Space Grotesk';font-weight:700;font-size:56px;line-height:1;letter-spacing:-0.03em}
+  .price-sub{color:var(--muted);font-size:13px;margin-top:8px}
+  .gate{padding:10px 16px;border-radius:10px;font-weight:600;display:flex;flex-direction:column;gap:2px;border:1px solid}
+  .gate.open{color:var(--ok);border-color:#1c3a24;background:#0f1c14}
+  .gate.shut{color:var(--bad);border-color:#3a1c1c;background:#1c1010}
+  .gate small{color:var(--muted);font-weight:400}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:0 0 8px}
+  .stat{border:1px solid var(--line);border-radius:var(--radius);padding:14px;background:var(--panel)}
+  .stat .k{font-size:12px;color:var(--muted)}
+  .stat .v{font-family:'JetBrains Mono';font-size:20px;margin-top:6px;font-weight:500}
+
+  nav.tabs{display:flex;gap:4px;margin:26px 0 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  nav.tabs button{background:none;border:none;border-bottom:2px solid transparent;border-radius:0;
+    color:var(--muted);padding:11px 14px}
+  nav.tabs button.active{color:var(--ink);border-bottom-color:var(--accent)}
+  nav.tabs button .badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:6px;font-size:11px;
+    background:var(--accent);color:#1a1200;border-radius:9px;font-family:'JetBrains Mono'}
+
+  section.tab{display:none}
+  section.tab.active{display:block}
+
+  .card{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:20px;margin-bottom:16px}
+  .card h3{font-size:16px;margin-bottom:4px}
+  .card .desc{color:var(--muted);font-size:13px;margin-bottom:16px}
+  .row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  @media(max-width:640px){.grid2,.grid3,.row{grid-template-columns:1fr}}
+
+  .kv{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .kv:last-child{border-bottom:none}
+  .kv .k{color:var(--muted)}
+  .kv .v{font-family:'JetBrains Mono'}
+
+  .req{border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:10px;background:var(--panel2)}
+  .req-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+  .req-type{font-family:'Space Grotesk';font-weight:600}
+  .req-body{font-family:'JetBrains Mono';font-size:12.5px;color:var(--muted);line-height:1.7;word-break:break-all}
+  .req-acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .chk{display:inline-flex;gap:5px;align-items:center;font-family:'Inter';font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--line)}
+  .chk.on{color:var(--ok);border-color:#1c3a24}
+  .chk.off{color:var(--faint)}
+  .st{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600}
+  .st.open{color:var(--accent);border:1px solid var(--accent-dim)}
+  .st.done{color:var(--ok);border:1px solid #1c3a24}
+  .st.cancel{color:var(--faint);border:1px solid var(--line)}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:500;font-size:12px}
+  td.mono,td .mono{font-family:'JetBrains Mono'}
+  .tag{font-size:11px;padding:2px 8px;border-radius:6px;font-weight:600}
+  .tag.alloc{color:var(--ok);background:#0f1c14}
+  .tag.wd{color:var(--info);background:#0d1b2e}
+  .tag.out{color:var(--bad);background:#1c1010}
+  .tag.in{color:var(--accent);background:#1f1808}
+
+
+  .hint{font-size:12.5px;color:var(--faint);margin-top:8px}
+  .empty{color:var(--faint);font-size:13px;padding:18px 0;text-align:center}
+
+  #toast{position:fixed;right:18px;bottom:18px;z-index:50;display:flex;flex-direction:column;gap:8px;max-width:360px}
+  .toast{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent);
+    padding:12px 14px;border-radius:8px;font-size:13px;animation:slidein .2s ease}
+  .toast.ok{border-left-color:var(--ok)} .toast.err{border-left-color:var(--bad)}
+  @keyframes slidein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .gateoff{opacity:.55}
+  .splash{max-width:520px;margin:80px auto;text-align:center}
+  .splash h1{font-size:30px;margin-bottom:12px}
+  .splash p{color:var(--muted);margin-bottom:26px}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand"><span class="dot"></span> KAVI Distribution</div>
+    <div class="grow"></div>
+    <div id="netpill" class="netpill" style="display:none"></div>
+    <button id="connectBtn" class="primary">Connect wallet</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div id="splash" class="splash">
+    <h1>Distribution console</h1>
+    <p>Connect a wallet on BNB Smart Chain, paste your deployed KaviDistributor address, and manage deposits, allocations, approvals and withdrawals.</p>
+    <button class="primary" onclick="connect()">Connect wallet</button>
+  </div>
+
+  <main id="app" style="display:none">
+
+
+    <div class="hero" id="hero">
+      <div>
+        <div class="price-num" id="priceNum">—</div>
+        <div class="price-sub">Live KAVI price</div>
+      </div>
+      <div class="grow"></div>
+      <div class="gate" id="gate"><span>Withdrawals</span><small id="gateSub"></small></div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <nav class="tabs" id="tabs">
+      <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="withdraw">Withdraw</button>
+      <button data-tab="admin">Admin</button>
+      <button data-tab="approvals">Approvals <span class="badge" id="apprBadge">0</span></button>
+      <button data-tab="history">History</button>
+    </nav>
+
+    <section class="tab active" id="tab-overview">
+      <div class="card">
+        <h3>Contract</h3>
+        <div class="desc">Live state read from the chain.</div>
+        <div id="ovKV"></div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-withdraw">
+      <div class="card">
+        <h3>Your allocation</h3>
+        <div class="desc">You can sell only free (unlocked) tokens, up to the per-window limit, while the price is above the gate. Proceeds are paid in USDT; a <span id="feeLabel">10</span>% fee (in USDT) applies.</div>
+        <div id="userKV"></div>
+      </div>
+      <div class="card" id="wdCard">
+        <h3>Sell &amp; withdraw</h3>
+        <div class="desc">Your KAVI is sold on PancakeSwap for USDT. You receive USDT minus the <span id="feeLabel2">10</span>% fee (also in USDT).</div>
+        <div class="grid2">
+          <div><label class="fld">Amount to sell (KAVI)</label><input id="wdAmt" placeholder="0.0" oninput="prevWithdraw()" /></div>
+          <div><label class="fld">Max slippage (%)</label><input id="wdSlip" value="3" oninput="prevWithdraw()" /></div>
+        </div>
+        <div class="hint" id="wdPreview"></div>
+        <div style="margin-top:12px"><button class="primary" onclick="doWithdraw()">Sell for USDT</button></div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-admin">
+      <div id="adminGate"></div>
+      <div id="adminBody" style="display:none">
+
+        <div class="card">
+          <h3>Deposit KAVI</h3>
+          <div class="desc">Move KAVI into the contract so allocations are backed. This approves the token, then deposits.</div>
+          <div class="row">
+            <div><label class="fld">Amount (KAVI)</label><input id="depAmt" placeholder="0.0" /></div>
+            <button class="primary" onclick="doDeposit()">Approve &amp; deposit</button>
+          </div>
+          <div class="hint" id="depHint"></div>
+        </div>
+
+        <div class="card">
+          <h3>Propose allocation</h3>
+          <div class="desc">Assign new tokens to a user from the unallocated pool. Both approvers must sign before you execute.</div>
+          <div class="grid2">
+            <div><label class="fld">User address</label><input id="alUser" placeholder="0x…" /></div>
+            <div><label class="fld">Amount (KAVI)</label><input id="alAmt" placeholder="0.0" /></div>
+          </div>
+          <div style="margin-top:12px"><button class="primary" onclick="doProposeAlloc()">Propose allocation</button></div>
+        </div>
+
+        <div class="card">
+          <h3>Propose reallocation</h3>
+          <div class="desc">Move an existing user's tokens to another user. Needs both wallets' approval. <span id="burnLabel">10</span>% of the amount is burned; the recipient receives the rest.</div>
+          <div class="grid3">
+            <div><label class="fld">From</label><input id="rlFrom" placeholder="0x…" /></div>
+            <div><label class="fld">To</label><input id="rlTo" placeholder="0x…" /></div>
+            <div><label class="fld">Amount (KAVI)</label><input id="rlAmt" placeholder="0.0" oninput="prevRealloc()" /></div>
+          </div>
+          <div class="hint" id="rlPreview"></div>
+          <div style="margin-top:12px"><button class="primary" onclick="doProposeRealloc()">Propose reallocation</button></div>
+        </div>
+
+        <div class="card">
+          <h3>Propose config change</h3>
+          <div class="desc">Every parameter change needs both approvers before it can execute.</div>
+          <div class="grid2">
+            <div>
+              <label class="fld">Action</label>
+              <select id="aaType" onchange="renderAAFields()">
+                <option value="0">Set per-user daily limit (KAVI)</option>
+                <option value="1">Set withdraw window (seconds)</option>
+                <option value="2">Set min price (USDT)</option>
+                <option value="3">Set withdraw fee (bps, 100=1%)</option>
+                <option value="4">Set reallocation burn (bps, 100=1%)</option>
+                <option value="5">Set fee recipient (address)</option>
+                <option value="6">Set PancakeSwap pair (address)</option>
+                <option value="7">Transfer admin (address)</option>
+                <option value="8">Emergency withdraw (token,to,amount)</option>
+                <option value="9">Set DEX router (address)</option>
+              </select>
+            </div>
+            <div id="aaFields"></div>
+          </div>
+          <div style="margin-top:12px"><button class="primary" onclick="doProposeAA()">Propose change</button></div>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="tab" id="tab-approvals">
+      <div class="card">
+        <h3>Open requests</h3>
+        <div class="desc">Sign or execute anything waiting on you. Buttons show only when your wallet is a party.</div>
+        <div id="reqList"><div class="empty">Loading…</div></div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-history">
+      <div class="card">
+        <h3>Transaction history</h3>
+        <div class="desc">Full on-chain record for any wallet: allocations in, withdrawals, and reallocations in/out.</div>
+        <div class="row">
+          <div><label class="fld">Wallet address</label><input id="histAddr" placeholder="0x…" /></div>
+          <button onclick="loadHistory()">Load history</button>
+        </div>
+        <div id="histOut" style="margin-top:16px"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const ABI = [
+  "function admin() view returns (address)",
+  "function approver1() view returns (address)",
+  "function approver2() view returns (address)",
+  "function feeRecipient() view returns (address)",
+  "function kavi() view returns (address)",
+  "function usdt() view returns (address)",
+  "function usdtDecimals() view returns (uint8)",
+  "function router() view returns (address)",
+  "function pair() view returns (address)",
+  "function kaviDecimals() view returns (uint8)",
+  "function minPriceE18() view returns (uint256)",
+  "function dailyLimit() view returns (uint256)",
+  "function withdrawWindow() view returns (uint256)",
+  "function feeBps() view returns (uint256)",
+  "function reallocBurnBps() view returns (uint256)",
+  "function totalAllocated() view returns (uint256)",
+  "function isPriceOk() view returns (bool)",
+  "function getKaviPriceE18() view returns (uint256)",
+  "function quoteWithdraw(uint256) view returns (uint256 usdtGross,uint256 usdtFee,uint256 usdtNet)",
+  "function previewReallocation(uint256) view returns (uint256 credited,uint256 burned)",
+  "function contractBalance() view returns (uint256)",
+  "function getUserInfo(address) view returns (uint256 userAllocation,uint256 lockedAmount,uint256 available,uint256 withdrawableNow,bool priceOk,uint256 remainingToday,uint256 resetIn)",
+  "function getContractInfo() view returns (uint256 balance,uint256 allocated,uint256 unallocated,uint256 priceE18,bool priceOk,uint256 limitPerUser,uint256 window,uint256 feePercentBps)",
+  "function allocRequestCount() view returns (uint256)",
+  "function reallocRequestCount() view returns (uint256)",
+  "function adminActionCount() view returns (uint256)",
+  "function getAllocRequest(uint256) view returns (address user,uint256 amount,bool approved1,bool approved2,bool executed,bool cancelled)",
+  "function getReallocRequest(uint256) view returns (address from,address to,uint256 amount,bool fromApproved,bool toApproved,bool executed,bool cancelled)",
+  "function getAdminAction(uint256) view returns (uint8 actionType,uint256 uintValue,address addr1,address addr2,bool approved1,bool approved2,bool executed,bool cancelled)",
+  "function getUserHistory(address) view returns (tuple(uint8 txType,uint256 amount,uint256 extra,address counterparty,uint256 timestamp,uint256 refId)[])",
+  "function deposit(uint256)",
+  "function proposeAllocation(address,uint256) returns (uint256)",
+  "function approveAllocation(uint256)",
+  "function executeAllocation(uint256)",
+  "function cancelAllocation(uint256)",
+  "function proposeReallocation(address,address,uint256) returns (uint256)",
+  "function approveReallocation(uint256)",
+  "function executeReallocation(uint256)",
+  "function cancelReallocation(uint256)",
+  "function proposeAdminAction(uint8,uint256,address,address) returns (uint256)",
+  "function approveAdminAction(uint256)",
+  "function executeAdminAction(uint256)",
+  "function cancelAdminAction(uint256)",
+  "function withdraw(uint256,uint256)"
+];
+const ERC20_ABI = [
+  "function approve(address,uint256) returns (bool)",
+  "function allowance(address,address) view returns (uint256)",
+  "function balanceOf(address) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)"
+];
+const BSC = 56n;
+const DEFAULT_CONTRACT = "0x309DE2CFD5C6751b3B7a24D7fBDDD3B27E9408E8";
+const AA_NAMES = ["Set daily limit","Set withdraw window","Set min price","Set fee bps","Set burn bps","Set fee recipient","Set pair","Transfer admin","Emergency withdraw","Set router"];
+
+let S = { provider:null, signer:null, account:null, chainId:null, c:null, kavi:null,
+          dec:18, sym:"KAVI", udec:18, usym:"USDT", admin:null, ap1:null, ap2:null, roles:{}, tick:null, resetAt:0 };
+
+function $(id){return document.getElementById(id)}
+function short(a){return a? a.slice(0,6)+"…"+a.slice(-4):"—"}
+function eq(a,b){return a&&b&&a.toLowerCase()===b.toLowerCase()}
+function fmtU(bn){return fmt(bn,S.udec)}
+function fmt(bn,dec=S.dec){ if(bn===undefined||bn===null) return "—"; let s=ethers.formatUnits(bn,dec); let n=Number(s); return n>=1?n.toLocaleString(undefined,{maximumFractionDigits:4}):s.replace(/0+$/,'').replace(/\.$/,'')||"0"; }
+function dur(sec){ sec=Number(sec); if(sec<=0)return "ready"; const d=Math.floor(sec/86400),h=Math.floor(sec%86400/3600),m=Math.floor(sec%3600/60),s=Math.floor(sec%60);
+  if(d)return `${d}d ${h}h`; if(h)return `${h}h ${m}m`; if(m)return `${m}m ${s}s`; return `${s}s`; }
+
+function toast(msg,kind){ const t=document.createElement('div'); t.className='toast '+(kind||''); t.textContent=msg; $('toast').appendChild(t); setTimeout(()=>t.remove(),6000); }
+
+const REVERT_MAP = {
+  'not admin':'Only the admin can do this.',
+  'not approver':'Only an approver can sign this.',
+  'not a party':'Only the sender or receiver of this reallocation can approve it.',
+  'not allowed':'Your wallet is not allowed to do this.',
+  'need both approvals':'Both approvers must sign before this can run.',
+  'no request':'That request does not exist.',
+  'no action':'That config action does not exist.',
+  'not open':'This request is already executed or cancelled.',
+  'insufficient free alloc':'Not enough free (unlocked) tokens. Some may be locked in a pending reallocation.',
+  'insufficient alloc':'Not enough allocation for this amount.',
+  'price below min':'Price is below the $0.033 gate — selling is paused right now.',
+  'daily limit reached':'You hit the per-window limit. Wait for the window to reset.',
+  'slippage':'Price moved too much — you would get less than your minimum. Raise slippage or retry.',
+  'exceeds balance':'Allocation would exceed the KAVI held by the contract. Deposit more first.',
+  'transfer failed':'Token transfer failed.',
+  'transferfrom failed':'Token pull failed — check allowance and balance.',
+  'approve failed':'Token approval failed.',
+  'burn failed':'KAVI burn failed — the token may not support burn(uint256).',
+  'no liquidity':'The KAVI/USDT pair has no liquidity, so the price cannot be read.',
+  'zero fee wallet':'Fee wallet cannot be the zero address.',
+  'fee wallet is admin':'Fee wallet must be different from the admin.',
+  'same approver':'The two approvers must be different addresses.',
+  'same wallet':'From and to must be different wallets.',
+  'too high':'Value too high (max 10000 bps = 100%).',
+  'reentrant':'Re-entrancy blocked.',
+  'zero addr':'Address cannot be zero.',
+  'zero':'Amount cannot be zero.',
+  'length mismatch':'Input lists have different lengths.'
+};
+
+function friendlyError(e){
+  const msg = ((e && (e.shortMessage||e.reason||e.message)) || '').toString();
+  const code = e && (e.code || (e.info && e.info.error && e.info.error.code));
+  if(code===4001 || code==='ACTION_REJECTED' || /user rejected|user denied/i.test(msg)) return 'Transaction rejected in your wallet.';
+  if(/insufficient funds/i.test(msg)) return 'Not enough BNB to pay for gas.';
+  if(/could not detect network|network changed|underlying network/i.test(msg)) return 'Network issue — make sure you are on BNB Smart Chain.';
+  let reason = (e && e.reason) || '';
+  if(!reason){ const m = msg.match(/reverted(?: with reason string)?:?\s*"?([^"]+)"?/i); if(m) reason = m[1]; }
+  const low = msg.toLowerCase();
+  if(!reason){ for(const k in REVERT_MAP){ if(low.includes(k)){ reason = k; break; } } }
+  const key = (reason||'').trim().toLowerCase();
+  if(REVERT_MAP[key]) return REVERT_MAP[key];
+  if(/call revert exception|missing revert data|execution reverted/i.test(msg)) return 'The contract rejected this call. Check your inputs and role.';
+  return msg ? msg.slice(0,160) : 'Transaction failed.';
+}
+
+function ready(){
+  if(!S.c){ toast('Connect your wallet first.','err'); return false; }
+  if(S.chainId!==BSC){ toast('Switch to BNB Smart Chain (chainId 56).','err'); return false; }
+  return true;
+}
+
+async function send(promiseFn,pending){
+  try{ toast(pending||'Sending transaction…');
+    const tx=await promiseFn(); const rc=await tx.wait();
+    if(rc && rc.status===0){ toast('Transaction reverted on-chain.','err'); return; }
+    toast('Confirmed','ok'); await refreshAll();
+  }catch(e){ toast(friendlyError(e),'err'); }
+}
+
+async function connect(){
+  if(!window.ethereum){ toast('No wallet found. Install MetaMask.','err'); return; }
+  try{
+    S.provider=new ethers.BrowserProvider(window.ethereum);
+    await S.provider.send('eth_requestAccounts',[]);
+    S.signer=await S.provider.getSigner();
+    S.account=await S.signer.getAddress();
+    const net=await S.provider.getNetwork(); S.chainId=net.chainId;
+    window.ethereum.on&&window.ethereum.on('accountsChanged',()=>location.reload());
+    window.ethereum.on&&window.ethereum.on('chainChanged',()=>location.reload());
+    $('connectBtn').textContent=short(S.account);
+    updateNet();
+    const saved=safeGet('kaviAddr')||DEFAULT_CONTRACT; await loadContract(saved);
+  }catch(e){ toast(friendlyError(e),'err'); }
+}
+
+function updateNet(){
+  const p=$('netpill'); p.style.display='';
+  if(S.chainId!==BSC){ p.className='netpill warn'; p.innerHTML='Wrong network — <a href="#" onclick="switchBSC();return false" style="color:inherit;text-decoration:underline">switch to BSC</a>'; }
+  else { p.className='netpill'; p.textContent='BNB Smart Chain'; }
+}
+async function switchBSC(){ try{ await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]}); }catch(e){ toast('Add BSC (chainId 56) to your wallet','err'); } }
+
+function safeGet(k){ try{return localStorage.getItem(k)}catch(e){return null} }
+function safeSet(k,v){ try{localStorage.setItem(k,v)}catch(e){} }
+
+async function loadContract(addr){
+  try{
+    try{ addr=ethers.getAddress(addr); }catch(_){ addr=ethers.getAddress(addr.toLowerCase()); }
+    S.c=new ethers.Contract(addr,ABI,S.signer);
+    S.admin=await S.c.admin(); S.ap1=await S.c.approver1(); S.ap2=await S.c.approver2();
+    S.dec=Number(await S.c.kaviDecimals());
+    try{ S.udec=Number(await S.c.usdtDecimals()); }catch(e){ S.udec=18; }
+    try{ const ua=await S.c.usdt(); const uc=new ethers.Contract(ua,ERC20_ABI,S.signer); S.usym=await uc.symbol(); }catch(e){ S.usym='USDT'; }
+    const kaviAddr=await S.c.kavi(); S.kavi=new ethers.Contract(kaviAddr,ERC20_ABI,S.signer);
+    try{ S.sym=await S.kavi.symbol(); }catch(e){ S.sym="KAVI"; }
+    S.roles={ admin:eq(S.account,S.admin), ap1:eq(S.account,S.ap1), ap2:eq(S.account,S.ap2) };
+    S.roles.approver=S.roles.ap1||S.roles.ap2;
+    safeSet('kaviAddr',addr);
+    $('splash').style.display='none'; $('app').style.display='';
+    renderAAFields();
+    applyTabVisibility();
+    if(S.roles.admin){ $('adminBody').style.display=''; $('adminGate').innerHTML=''; }
+    else $('adminGate').innerHTML='<div class="card"><div class="empty">Connected wallet is not the admin. Admin actions are hidden.</div></div>';
+    await refreshAll();
+    if(S.tick) clearInterval(S.tick);
+    S.tick=setInterval(tickCountdown,1000);
+  }catch(e){ toast('Could not load the contract: '+friendlyError(e),'err'); }
+}
+
+async function refreshAll(){
+  if(!S.c) return;
+  try{ await Promise.all([refreshOverview(), refreshUser(), refreshDeposit(), refreshRequests()]); }
+  catch(e){ /* each section renders its own fallback */ }
+}
+
+async function refreshOverview(){
+  let info,minP,burn;
+  try{ info=await S.c.getContractInfo(); }
+  catch(e){
+    $('priceNum').textContent='n/a';
+    $('gate').className='gate shut'; $('gateSub').textContent='price feed unavailable';
+    try{ const bal=await S.c.contractBalance(); const alloc=await S.c.totalAllocated();
+      $('stats').innerHTML=statHtml('Contract balance',fmt(bal)+' '+S.sym)+statHtml('Allocated',fmt(alloc)+' '+S.sym); }catch(_){}
+    return;
+  }
+  try{ minP=await S.c.minPriceE18(); }catch(e){ minP=0n; }
+  try{ burn=await S.c.reallocBurnBps(); }catch(e){ burn=1000n; }
+  const price=Number(ethers.formatUnits(info.priceE18,18));
+  $('priceNum').textContent='$'+price.toLocaleString(undefined,{minimumFractionDigits:4,maximumFractionDigits:6});
+  const min=Number(ethers.formatUnits(minP,18));
+  const g=$('gate');
+  if(info.priceOk){ g.className='gate open'; $('gateSub').textContent='open · above $'+min; }
+  else { g.className='gate shut'; $('gateSub').textContent='closed · below $'+min; }
+  $('feeLabel').textContent=(Number(info.feePercentBps)/100); var fl2=$('feeLabel2'); if(fl2)fl2.textContent=(Number(info.feePercentBps)/100); $('burnLabel').textContent=(Number(burn)/100);
+
+  // Free / available card — shows the user's free (unlocked) KAVI valued at the live USD price
+  const priceStr='$'+price.toLocaleString(undefined,{minimumFractionDigits:4,maximumFractionDigits:6});
+  let freeCard;
+  try{
+    const u=await S.c.getUserInfo(S.account);
+    const avail=Number(ethers.formatUnits(u.available,S.dec));
+    const usdVal=avail*price;
+    freeCard=statHtml('Free / available',
+      fmt(u.available)+' '+S.sym+
+      `<div class="price-sub" style="margin-top:4px">≈ $${usdVal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} · ${priceStr} / ${S.sym}</div>`);
+  }catch(e){
+    freeCard=statHtml('Free / available',
+      priceStr+`<div class="price-sub" style="margin-top:4px">live ${S.sym} price (USD)</div>`);
+  }
+
+  $('stats').innerHTML=
+    statHtml('Contract balance',fmt(info.balance)+' '+S.sym)+
+    statHtml('Allocated',fmt(info.allocated)+' '+S.sym)+
+    freeCard+
+    statHtml('Window',dur(info.window));
+
+  $('ovKV').innerHTML=
+    kv('Live price','$'+price.toFixed(6))+
+    kv('Price gate','$'+min.toFixed(4)+(info.priceOk?' · open':' · closed'))+
+    kv('Reallocation burn',(Number(burn)/100)+'%');
+}
+function statHtml(k,v){return `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`}
+function kv(k,v){return `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`}
+
+async function refreshUser(){
+  try{
+    const u=await S.c.getUserInfo(S.account);
+    S.resetAt=Date.now()+Number(u.resetIn)*1000;
+    $('userKV').innerHTML=
+      kv('Total allocation',fmt(u.userAllocation)+' '+S.sym)+
+      kv('Locked (pending reallocation)',fmt(u.lockedAmount)+' '+S.sym)+
+      kv('Free / available',fmt(u.available)+' '+S.sym)+
+      kv('Sellable now (KAVI)',fmt(u.withdrawableNow)+' '+S.sym)+
+      kv('Remaining this window',fmt(u.remainingToday)+' '+S.sym)+
+      kv('Window resets in',`<span id="rst">${dur(u.resetIn)}</span>`)+
+      kv('Price gate',u.priceOk?'open':'closed');
+    const card=$('wdCard'); card.classList.toggle('gateoff',!u.priceOk);
+  }catch(e){ $('userKV').innerHTML='<div class="empty">Could not read your allocation.</div>'; }
+}
+function tickCountdown(){ const el=$('rst'); if(!el)return; const s=Math.max(0,Math.round((S.resetAt-Date.now())/1000)); el.textContent=dur(s); }
+
+async function refreshDeposit(){
+  if(!S.roles.admin) return;
+  try{ const bal=await S.kavi.balanceOf(S.account);
+    $('depHint').textContent=`Your wallet holds ${fmt(bal)} ${S.sym}.`; }catch(e){}
+}
+
+async function doWithdraw(){
+  if(!ready()) return;
+  const v=$('wdAmt').value.trim(); if(!v){ toast('Enter an amount to sell.','err'); return; }
+  let amt; try{ amt=ethers.parseUnits(v,S.dec); }catch(e){ toast('Enter a valid KAVI amount.','err'); return; }
+  if(amt<=0n){ toast('Amount must be greater than zero.','err'); return; }
+  try{
+    const u=await S.c.getUserInfo(S.account);
+    if(u.userAllocation<=0n){ toast('You have no allocation to sell.','err'); return; }
+    if(!u.priceOk){ toast('Price is below the $0.033 gate — selling is paused.','err'); return; }
+    if(amt>u.available){ toast('Only '+fmt(u.available)+' '+S.sym+' is free to sell (rest is locked).','err'); return; }
+    if(amt>u.remainingToday){ toast('Over your window limit — '+fmt(u.remainingToday)+' '+S.sym+' left, resets in '+dur(u.resetIn)+'.','err'); return; }
+  }catch(e){ toast(friendlyError(e),'err'); return; }
+  let minOut=0n;
+  try{ const q=await S.c.quoteWithdraw(amt); const slip=Math.max(0,Math.min(50,Number($('wdSlip').value)||0));
+       minOut=q.usdtGross - (q.usdtGross*BigInt(Math.round(slip*100)))/10000n; }
+  catch(e){ toast('Could not fetch a price quote — the KAVI/USDT pair may be illiquid.','err'); return; }
+  await send(()=>S.c.withdraw(amt,minOut),'Selling for USDT…');
+  $('wdAmt').value='';
+}
+async function prevWithdraw(){
+  const v=$('wdAmt').value.trim(); const el=$('wdPreview'); if(!v){el.textContent='';return;}
+  try{ const amt=ethers.parseUnits(v,S.dec); const q=await S.c.quoteWithdraw(amt);
+    const slip=Math.max(0,Math.min(50,Number($('wdSlip').value)||0));
+    const minOut=q.usdtGross - (q.usdtGross*BigInt(Math.round(slip*100)))/10000n;
+    el.textContent=`≈ receive ${fmtU(q.usdtNet)} ${S.usym} · fee ${fmtU(q.usdtFee)} ${S.usym} · min at ${slip}% slippage ${fmtU(minOut)} ${S.usym}`;
+  }catch(e){ el.textContent='Quote unavailable (check router/liquidity).'; }
+}
+
+async function doDeposit(){
+  if(!ready()) return;
+  if(!S.roles.admin){ toast('Only the admin can deposit.','err'); return; }
+  const v=$('depAmt').value.trim(); if(!v){ toast('Enter an amount to deposit.','err'); return; }
+  let amt; try{ amt=ethers.parseUnits(v,S.dec); }catch(e){ toast('Enter a valid KAVI amount.','err'); return; }
+  if(amt<=0n){ toast('Amount must be greater than zero.','err'); return; }
+  try{
+    const bal=await S.kavi.balanceOf(S.account);
+    if(amt>bal){ toast('Your wallet only holds '+fmt(bal)+' '+S.sym+'.','err'); return; }
+    const spender=await S.c.getAddress();
+    const allow=await S.kavi.allowance(S.account,spender);
+    if(allow<amt){ toast('Approving KAVI…'); const a=await S.kavi.approve(spender,amt); const ar=await a.wait(); if(ar&&ar.status===0){ toast('Approval reverted.','err'); return; } toast('Approved','ok'); }
+    await send(()=>S.c.deposit(amt),'Depositing…');
+    $('depAmt').value='';
+  }catch(e){ toast(friendlyError(e),'err'); }
+}
+
+async function doProposeAlloc(){
+  if(!ready()) return;
+  if(!S.roles.admin){ toast('Only the admin can propose an allocation.','err'); return; }
+  const u=$('alUser').value.trim(), v=$('alAmt').value.trim();
+  if(!ethers.isAddress(u)){ toast('Enter a valid user address.','err'); return; }
+  let amt; try{ amt=ethers.parseUnits(v,S.dec); }catch(e){ toast('Enter a valid KAVI amount.','err'); return; }
+  if(amt<=0n){ toast('Amount must be greater than zero.','err'); return; }
+  await send(()=>S.c.proposeAllocation(u,amt),'Proposing allocation…');
+}
+
+async function prevRealloc(){
+  const v=$('rlAmt').value.trim(); const el=$('rlPreview'); if(!v){el.textContent='';return;}
+  try{ const amt=ethers.parseUnits(v,S.dec); const p=await S.c.previewReallocation(amt);
+    el.textContent=`Recipient gets ${fmt(p.credited)} ${S.sym} · burned ${fmt(p.burned)} ${S.sym}`; }catch(e){ el.textContent=''; }
+}
+async function doProposeRealloc(){
+  if(!ready()) return;
+  if(!S.roles.admin){ toast('Only the admin can propose a reallocation.','err'); return; }
+  const f=$('rlFrom').value.trim(), t=$('rlTo').value.trim(), v=$('rlAmt').value.trim();
+  if(!ethers.isAddress(f)){ toast('Enter a valid "from" address.','err'); return; }
+  if(!ethers.isAddress(t)){ toast('Enter a valid "to" address.','err'); return; }
+  if(eq(f,t)){ toast('From and to must be different wallets.','err'); return; }
+  let amt; try{ amt=ethers.parseUnits(v,S.dec); }catch(e){ toast('Enter a valid KAVI amount.','err'); return; }
+  if(amt<=0n){ toast('Amount must be greater than zero.','err'); return; }
+  await send(()=>S.c.proposeReallocation(f,t,amt),'Proposing reallocation…');
+}
+
+function renderAAFields(){
+  const t=Number($('aaType').value); const box=$('aaFields'); let h='';
+  const num=(lbl,id,ph)=>`<label class="fld">${lbl}</label><input id="${id}" placeholder="${ph||'0'}" />`;
+  if(t===0) h=num('New per-user daily limit (KAVI)','aaV','1000');
+  else if(t===1) h=num('Window (seconds, e.g. 86400)','aaV','86400');
+  else if(t===2) h=num('Min price (USDT, e.g. 0.033)','aaV','0.033');
+  else if(t===3) h=num('Withdraw fee (bps, 1000 = 10%)','aaV','1000');
+  else if(t===4) h=num('Burn (bps, 1000 = 10%)','aaV','1000');
+  else if(t===5||t===6||t===7||t===9) h=`<label class="fld">Address</label><input id="aaA1" placeholder="0x…" />`;
+  else if(t===8) h=`<label class="fld">Token</label><input id="aaA1" placeholder="0x…" style="margin-bottom:8px"/><label class="fld">To</label><input id="aaA2" placeholder="0x…" style="margin-bottom:8px"/><label class="fld">Amount (raw units / wei)</label><input id="aaV" placeholder="0" />`;
+  box.innerHTML=h;
+}
+async function doProposeAA(){
+  if(!ready()) return;
+  if(!S.roles.admin){ toast('Only the admin can propose a config change.','err'); return; }
+  const t=Number($('aaType').value);
+  let uintV=0n, a1=ethers.ZeroAddress, a2=ethers.ZeroAddress;
+  try{
+    if(t===0) uintV=ethers.parseUnits($('aaV').value.trim()||'0',S.dec);
+    else if(t===1||t===3||t===4) uintV=BigInt($('aaV').value.trim()||'0');
+    else if(t===2) uintV=ethers.parseUnits($('aaV').value.trim()||'0',18);
+    else if(t===5||t===6||t===7||t===9){ a1=$('aaA1').value.trim(); if(!ethers.isAddress(a1))throw 0; }
+    else if(t===8){ a1=$('aaA1').value.trim(); a2=$('aaA2').value.trim(); if(!ethers.isAddress(a1)||!ethers.isAddress(a2))throw 0; uintV=BigInt($('aaV').value.trim()||'0'); }
+  }catch(e){ toast('Check the fields for this action — address must be valid and amount numeric.','err'); return; }
+  await send(()=>S.c.proposeAdminAction(t,uintV,a1,a2),'Proposing config change…');
+}
+
+async function refreshRequests(){
+  const list=$('reqList'); let out=[]; let openCount=0; S.reallocParty=false;
+  const [ac,rc,dc]=await Promise.all([S.c.allocRequestCount(),S.c.reallocRequestCount(),S.c.adminActionCount()]);
+  for(let i=Number(ac);i>=1;i--){ const r=await S.c.getAllocRequest(i); out.push(renderAlloc(i,r)); if(isOpen(r)) openCount++; }
+  for(let i=Number(rc);i>=1;i--){ const r=await S.c.getReallocRequest(i); out.push(renderRealloc(i,r)); if(isOpen(r)){ openCount++; if(eq(S.account,r.from)||eq(S.account,r.to)) S.reallocParty=true; } }
+  for(let i=Number(dc);i>=1;i--){ const r=await S.c.getAdminAction(i); out.push(renderAA(i,r)); if(isOpen(r)) openCount++; }
+  list.innerHTML=out.length?out.join(''):'<div class="empty">No requests yet.</div>';
+  $('apprBadge').textContent=openCount;
+  applyTabVisibility();
+}
+function isOpen(r){ return !r.executed && !r.cancelled; }
+function statusPill(r){ if(r.executed)return '<span class="st done">executed</span>'; if(r.cancelled)return '<span class="st cancel">cancelled</span>'; return '<span class="st open">open</span>'; }
+function chk(on,lbl){ return `<span class="chk ${on?'on':'off'}">${on?'✓':'○'} ${lbl}</span>`; }
+
+function renderAlloc(id,r){
+  const open=isOpen(r), both=r.approved1&&r.approved2;
+  let acts='';
+  if(open){
+    if(S.roles.ap1&&!r.approved1) acts+=`<button class="sm" onclick="send(()=>S.c.approveAllocation(${id}),'Approving…')">Approve (A1)</button>`;
+    if(S.roles.ap2&&!r.approved2) acts+=`<button class="sm" onclick="send(()=>S.c.approveAllocation(${id}),'Approving…')">Approve (A2)</button>`;
+    if(S.roles.admin&&both) acts+=`<button class="sm primary" onclick="send(()=>S.c.executeAllocation(${id}),'Executing…')">Execute</button>`;
+    if(S.roles.admin||S.roles.approver) acts+=`<button class="sm danger" onclick="send(()=>S.c.cancelAllocation(${id}),'Cancelling…')">Cancel</button>`;
+  }
+  return `<div class="req"><div class="req-head"><span class="req-type">Allocation #${id}</span>${statusPill(r)}</div>
+    <div class="req-body">to ${r.user}<br>amount ${fmt(r.amount)} ${S.sym}</div>
+    <div class="req-acts">${chk(r.approved1,'Approver 1')}${chk(r.approved2,'Approver 2')}${acts}</div></div>`;
+}
+function renderRealloc(id,r){
+  const open=isOpen(r), both=r.fromApproved&&r.toApproved;
+  let acts='';
+  if(open){
+    if(eq(S.account,r.from)&&!r.fromApproved) acts+=`<button class="sm" onclick="send(()=>S.c.approveReallocation(${id}),'Approving…')">Approve (from)</button>`;
+    if(eq(S.account,r.to)&&!r.toApproved) acts+=`<button class="sm" onclick="send(()=>S.c.approveReallocation(${id}),'Approving…')">Approve (to)</button>`;
+    if(S.roles.admin&&both) acts+=`<button class="sm primary" onclick="send(()=>S.c.executeReallocation(${id}),'Executing…')">Execute</button>`;
+    if(S.roles.admin||eq(S.account,r.from)||eq(S.account,r.to)) acts+=`<button class="sm danger" onclick="send(()=>S.c.cancelReallocation(${id}),'Cancelling…')">Cancel</button>`;
+  }
+  return `<div class="req"><div class="req-head"><span class="req-type">Reallocation #${id}</span>${statusPill(r)}</div>
+    <div class="req-body">from ${r.from}<br>to ${r.to}<br>amount ${fmt(r.amount)} ${S.sym}</div>
+    <div class="req-acts">${chk(r.fromApproved,'From')}${chk(r.toApproved,'To')}${acts}</div></div>`;
+}
+function renderAA(id,r){
+  const open=isOpen(r), both=r.approved1&&r.approved2, t=Number(r.actionType);
+  let detail='';
+  if(t===0) detail='daily limit → '+fmt(r.uintValue)+' '+S.sym;
+  else if(t===1) detail='window → '+dur(r.uintValue);
+  else if(t===2) detail='min price → $'+Number(ethers.formatUnits(r.uintValue,18)).toFixed(4);
+  else if(t===3) detail='fee → '+(Number(r.uintValue)/100)+'%';
+  else if(t===4) detail='burn → '+(Number(r.uintValue)/100)+'%';
+  else if(t===5) detail='fee recipient → '+r.addr1;
+  else if(t===6) detail='pair → '+r.addr1;
+  else if(t===7) detail='admin → '+r.addr1;
+  else if(t===8) detail='token '+r.addr1+' → '+r.addr2+' · '+r.uintValue.toString()+' wei';
+  else if(t===9) detail='router → '+r.addr1;
+  let acts='';
+  if(open){
+    if(S.roles.ap1&&!r.approved1) acts+=`<button class="sm" onclick="send(()=>S.c.approveAdminAction(${id}),'Approving…')">Approve (A1)</button>`;
+    if(S.roles.ap2&&!r.approved2) acts+=`<button class="sm" onclick="send(()=>S.c.approveAdminAction(${id}),'Approving…')">Approve (A2)</button>`;
+    if(S.roles.admin&&both) acts+=`<button class="sm primary" onclick="send(()=>S.c.executeAdminAction(${id}),'Executing…')">Execute</button>`;
+    if(S.roles.admin||S.roles.approver) acts+=`<button class="sm danger" onclick="send(()=>S.c.cancelAdminAction(${id}),'Cancelling…')">Cancel</button>`;
+  }
+  return `<div class="req"><div class="req-head"><span class="req-type">Config #${id} · ${AA_NAMES[t]}</span>${statusPill(r)}</div>
+    <div class="req-body">${detail}</div>
+    <div class="req-acts">${chk(r.approved1,'Approver 1')}${chk(r.approved2,'Approver 2')}${acts}</div></div>`;
+}
+
+const HTYPES=[['Allocation','alloc'],['Withdrawal','wd'],['Realloc out','out'],['Realloc in','in']];
+async function loadHistory(){
+  const a=$('histAddr').value.trim()||S.account;
+  if(!ethers.isAddress(a)){ toast('Invalid address','err'); return; }
+  try{
+    const h=await S.c.getUserHistory(a);
+    if(!h.length){ $('histOut').innerHTML='<div class="empty">No history for this wallet.</div>'; return; }
+    let rows='';
+    for(let i=h.length-1;i>=0;i--){ const e=h[i]; const t=Number(e.txType); const [name,cls]=HTYPES[t];
+      const when=new Date(Number(e.timestamp)*1000).toLocaleString();
+      let amtCol = t===1 ? fmt(e.amount)+' '+S.sym : fmt(e.amount)+' '+S.sym;
+      let extra = t===1 ? ('received '+fmtU(e.extra)+' '+S.usym) : (t===2 ? ('burned '+fmt(e.extra)+' '+S.sym) : '');
+      let cp = (t===2||t===3) ? short(e.counterparty) : '—';
+      rows+=`<tr><td><span class="tag ${cls}">${name}</span></td><td class="mono">${amtCol}</td><td class="mono">${extra||'—'}</td><td class="mono">${cp}</td><td>${when}</td><td class="mono">${e.refId.toString()}</td></tr>`;
+    }
+    $('histOut').innerHTML=`<table><thead><tr><th>Type</th><th>KAVI amount</th><th>Detail</th><th>Counterparty</th><th>Time</th><th>Ref</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }catch(e){ $('histOut').innerHTML='<div class="empty">Could not load history.</div>'; }
+}
+
+function applyTabVisibility(){
+  const adminBtn=document.querySelector('#tabs button[data-tab="admin"]');
+  const apprBtn=document.querySelector('#tabs button[data-tab="approvals"]');
+  const showAdmin=!!S.roles.admin;
+  const showAppr=!!(S.roles.admin||S.roles.approver||S.reallocParty);
+  if(adminBtn) adminBtn.style.display=showAdmin?'':'none';
+  if(apprBtn) apprBtn.style.display=showAppr?'':'none';
+  const active=document.querySelector('#tabs button.active');
+  if((active===adminBtn&&!showAdmin)||(active===apprBtn&&!showAppr)){
+    document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('section.tab').forEach(x=>x.classList.remove('active'));
+    const ov=document.querySelector('#tabs button[data-tab="overview"]');
+    if(ov){ ov.classList.add('active'); $('tab-overview').classList.add('active'); }
+  }
+}
+
+$('connectBtn').onclick=connect;
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('section.tab').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); $('tab-'+b.dataset.tab).classList.add('active');
+});
+</script>
+</body>
+</html>
